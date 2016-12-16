@@ -67,16 +67,13 @@ typedef struct _GstDecodetimeBinClass GstDecodetimeBinClass;
 
 struct _GstDecodetimeBin
 {
-  GstElement element;
-
-  GstPad *sinkpad, *srcpad;
-
-  gboolean silent;
+  GstBin bin;
+  GstElement *fakesink;
 };
 
-struct _GstDecodetimeBinClass 
+struct _GstDecodetimeBinClass
 {
-  GstElementClass parent_class;
+  GstBinClass parent_class;
 };
 
 GType gst_decodetime_bin_get_type (void);

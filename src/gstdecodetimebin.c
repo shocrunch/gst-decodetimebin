@@ -74,12 +74,6 @@ enum
   LAST_SIGNAL
 };
 
-enum
-{
-  PROP_0,
-  PROP_SILENT
-};
-
 /* the capabilities of the inputs and outputs.
  *
  * describe the real formats here.
@@ -90,22 +84,13 @@ static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE ("sink",
     GST_STATIC_CAPS ("ANY")
     );
 
-static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE ("src",
-    GST_PAD_SRC,
-    GST_PAD_ALWAYS,
-    GST_STATIC_CAPS ("ANY")
-    );
-
 #define gst_decodetime_bin_parent_class parent_class
-G_DEFINE_TYPE (GstDecodetimeBin, gst_decodetime_bin, GST_TYPE_ELEMENT);
+G_DEFINE_TYPE (GstDecodetimeBin, gst_decodetime_bin, GST_TYPE_BIN);
 
 static void gst_decodetime_bin_set_property (GObject * object, guint prop_id,
     const GValue * value, GParamSpec * pspec);
 static void gst_decodetime_bin_get_property (GObject * object, guint prop_id,
     GValue * value, GParamSpec * pspec);
-
-static gboolean gst_decodetime_bin_sink_event (GstPad * pad, GstObject * parent, GstEvent * event);
-static GstFlowReturn gst_decodetime_bin_chain (GstPad * pad, GstObject * parent, GstBuffer * buf);
 
 /* GObject vmethod implementations */
 
@@ -122,18 +107,12 @@ gst_decodetime_bin_class_init (GstDecodetimeBinClass * klass)
   gobject_class->set_property = gst_decodetime_bin_set_property;
   gobject_class->get_property = gst_decodetime_bin_get_property;
 
-  g_object_class_install_property (gobject_class, PROP_SILENT,
-      g_param_spec_boolean ("silent", "Silent", "Produce verbose output ?",
-          FALSE, G_PARAM_READWRITE));
-
   gst_element_class_set_details_simple(gstelement_class,
     "DecodetimeBin",
     "FIXME:Generic",
     "FIXME:Generic Template Element",
     "Shota TAMURA <r3108.sh@gmail.com>");
 
-  gst_element_class_add_pad_template (gstelement_class,
-      gst_static_pad_template_get (&src_factory));
   gst_element_class_add_pad_template (gstelement_class,
       gst_static_pad_template_get (&sink_factory));
 }
@@ -144,105 +123,41 @@ gst_decodetime_bin_class_init (GstDecodetimeBinClass * klass)
  * initialize instance structure
  */
 static void
-gst_decodetime_bin_init (GstDecodetimeBin * filter)
+gst_decodetime_bin_init (GstDecodetimeBin *decodetime_bin)
 {
-  filter->sinkpad = gst_pad_new_from_static_template (&sink_factory, "sink");
-  gst_pad_set_event_function (filter->sinkpad,
-                              GST_DEBUG_FUNCPTR(gst_decodetime_bin_sink_event));
-  gst_pad_set_chain_function (filter->sinkpad,
-                              GST_DEBUG_FUNCPTR(gst_decodetime_bin_chain));
-  GST_PAD_SET_PROXY_CAPS (filter->sinkpad);
-  gst_element_add_pad (GST_ELEMENT (filter), filter->sinkpad);
+  GstPad *pad;
+  GstPad *gpad;
+  GstPadTemplate *pad_tmpl;
 
-  filter->srcpad = gst_pad_new_from_static_template (&src_factory, "src");
-  GST_PAD_SET_PROXY_CAPS (filter->srcpad);
-  gst_element_add_pad (GST_ELEMENT (filter), filter->srcpad);
+  decodetime_bin->fakesink = gst_element_factory_make ("fakesink", "sink");
 
-  filter->silent = FALSE;
+  gst_bin_add (GST_BIN (decodetime_bin), decodetime_bin->fakesink);
+
+  pad = gst_element_get_static_pad (decodetime_bin->fakesink, "sink");
+
+  pad_tmpl = gst_static_pad_template_get (&sink_factory);
+
+  gpad = gst_ghost_pad_new_from_template ("sink", pad, pad_tmpl);
+  gst_pad_set_active (gpad, TRUE);
+  gst_element_add_pad (GST_ELEMENT (decodetime_bin), gpad);
+
+  gst_object_unref (pad_tmpl);
+  gst_object_unref (pad);
 }
 
 static void
 gst_decodetime_bin_set_property (GObject * object, guint prop_id,
     const GValue * value, GParamSpec * pspec)
 {
-  GstDecodetimeBin *filter = GST_DECODETIMEBIN (object);
-
-  switch (prop_id) {
-    case PROP_SILENT:
-      filter->silent = g_value_get_boolean (value);
-      break;
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
-      break;
-  }
 }
 
 static void
 gst_decodetime_bin_get_property (GObject * object, guint prop_id,
     GValue * value, GParamSpec * pspec)
 {
-  GstDecodetimeBin *filter = GST_DECODETIMEBIN (object);
-
-  switch (prop_id) {
-    case PROP_SILENT:
-      g_value_set_boolean (value, filter->silent);
-      break;
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
-      break;
-  }
 }
 
 /* GstElement vmethod implementations */
-
-/* this function handles sink events */
-static gboolean
-gst_decodetime_bin_sink_event (GstPad * pad, GstObject * parent, GstEvent * event)
-{
-  GstDecodetimeBin *filter;
-  gboolean ret;
-
-  filter = GST_DECODETIMEBIN (parent);
-
-  GST_LOG_OBJECT (filter, "Received %s event: %" GST_PTR_FORMAT,
-      GST_EVENT_TYPE_NAME (event), event);
-
-  switch (GST_EVENT_TYPE (event)) {
-    case GST_EVENT_CAPS:
-    {
-      GstCaps * caps;
-
-      gst_event_parse_caps (event, &caps);
-      /* do something with the caps */
-
-      /* and forward */
-      ret = gst_pad_event_default (pad, parent, event);
-      break;
-    }
-    default:
-      ret = gst_pad_event_default (pad, parent, event);
-      break;
-  }
-  return ret;
-}
-
-/* chain function
- * this function does the actual processing
- */
-static GstFlowReturn
-gst_decodetime_bin_chain (GstPad * pad, GstObject * parent, GstBuffer * buf)
-{
-  GstDecodetimeBin *filter;
-
-  filter = GST_DECODETIMEBIN (parent);
-
-  if (filter->silent == FALSE)
-    g_print ("I'm plugged, therefore I'm in.\n");
-
-  /* just push out the incoming buffer without touching it */
-  return gst_pad_push (filter->srcpad, buf);
-}
-
 
 /* entry point to initialize the plug-in
  * initialize the plug-in itself
