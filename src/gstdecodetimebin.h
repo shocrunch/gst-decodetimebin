@@ -68,7 +68,7 @@ typedef struct _GstDecodetimeBinClass GstDecodetimeBinClass;
 struct _GstDecodetimeBin
 {
   GstBin bin;
-  GstElement *fakesink;
+  GstElement *overlay;
 };
 
 struct _GstDecodetimeBinClass

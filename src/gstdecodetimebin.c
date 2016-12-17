@@ -84,6 +84,12 @@ static GstStaticPadTemplate sink_factory = GST_STATIC_PAD_TEMPLATE ("sink",
     GST_STATIC_CAPS ("ANY")
     );
 
+static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE ("src",
+    GST_PAD_SRC,
+    GST_PAD_ALWAYS,
+    GST_STATIC_CAPS ("ANY")
+    );
+
 #define gst_decodetime_bin_parent_class parent_class
 G_DEFINE_TYPE (GstDecodetimeBin, gst_decodetime_bin, GST_TYPE_BIN);
 
@@ -114,6 +120,8 @@ gst_decodetime_bin_class_init (GstDecodetimeBinClass * klass)
     "Shota TAMURA <r3108.sh@gmail.com>");
 
   gst_element_class_add_pad_template (gstelement_class,
+      gst_static_pad_template_get (&src_factory));
+  gst_element_class_add_pad_template (gstelement_class,
       gst_static_pad_template_get (&sink_factory));
 }
 
@@ -129,18 +137,24 @@ gst_decodetime_bin_init (GstDecodetimeBin *decodetime_bin)
   GstPad *gpad;
   GstPadTemplate *pad_tmpl;
 
-  decodetime_bin->fakesink = gst_element_factory_make ("fakesink", "sink");
+  decodetime_bin->overlay = gst_element_factory_make ("timeoverlay", "overlay");
 
-  gst_bin_add (GST_BIN (decodetime_bin), decodetime_bin->fakesink);
+  gst_bin_add (GST_BIN (decodetime_bin), decodetime_bin->overlay);
 
-  pad = gst_element_get_static_pad (decodetime_bin->fakesink, "sink");
+  pad = gst_element_get_static_pad (decodetime_bin->overlay, "video_sink");
 
   pad_tmpl = gst_static_pad_template_get (&sink_factory);
 
   gpad = gst_ghost_pad_new_from_template ("sink", pad, pad_tmpl);
   gst_pad_set_active (gpad, TRUE);
   gst_element_add_pad (GST_ELEMENT (decodetime_bin), gpad);
+  gst_object_unref (pad_tmpl);
+  gst_object_unref (pad);
 
+  pad = gst_element_get_static_pad (decodetime_bin->overlay, "src");
+  pad_tmpl = gst_static_pad_template_get (&src_factory);
+  gpad = gst_ghost_pad_new_from_template ("src", pad, pad_tmpl);
+  gst_element_add_pad (GST_ELEMENT (decodetime_bin), gpad);
   gst_object_unref (pad_tmpl);
   gst_object_unref (pad);
 }
