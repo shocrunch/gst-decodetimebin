@@ -138,15 +138,11 @@ gst_decodetime_bin_init (GstDecodetimeBin *decodetime_bin)
   GstPadTemplate *pad_tmpl;
 
   decodetime_bin->overlay = gst_element_factory_make ("timeoverlay", "overlay");
-
   gst_bin_add (GST_BIN (decodetime_bin), decodetime_bin->overlay);
 
   pad = gst_element_get_static_pad (decodetime_bin->overlay, "video_sink");
-
   pad_tmpl = gst_static_pad_template_get (&sink_factory);
-
   gpad = gst_ghost_pad_new_from_template ("sink", pad, pad_tmpl);
-  gst_pad_set_active (gpad, TRUE);
   gst_element_add_pad (GST_ELEMENT (decodetime_bin), gpad);
   gst_object_unref (pad_tmpl);
   gst_object_unref (pad);
