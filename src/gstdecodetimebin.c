@@ -139,7 +139,7 @@ gst_decodetime_bin_init (GstDecodetimeBin *decodetime_bin)
   GstPad *gpad;
   GstPadTemplate *pad_tmpl;
 
-  decodetime_bin->overlay = gst_element_factory_make ("timeoverlay", "overlay");
+  decodetime_bin->overlay = gst_element_factory_make ("textoverlay", "overlay");
   gst_bin_add (GST_BIN (decodetime_bin), decodetime_bin->overlay);
 
   decodetime_bin->decoder = gst_element_factory_make ("jpegdec", "decoder");
@@ -158,7 +158,7 @@ gst_decodetime_bin_init (GstDecodetimeBin *decodetime_bin)
 
   pad = gst_element_get_static_pad (decodetime_bin->decoder, "src");
   gst_pad_add_probe (pad, GST_PAD_PROBE_TYPE_BUFFER,
-      (GstPadProbeCallback) cb_have_buffer, NULL, NULL);
+      (GstPadProbeCallback) cb_have_buffer, decodetime_bin, NULL);
   gst_object_unref (pad);
 
   pad = gst_element_get_static_pad (decodetime_bin->overlay, "src");
@@ -195,7 +195,14 @@ cb_have_buffer (GstPad * pad, GstPadProbeInfo * info, gpointer user_data)
   direction = gst_pad_get_direction (pad);
   switch (direction) {
     case GST_PAD_SRC:
-      g_print ("src [%04d]: %lu\n", num_src++, gst_buffer_get_size (buf));
+    {
+      GstElement *overlay = ((GstDecodetimeBin *) user_data)->overlay;
+      GString *string = g_string_new (NULL);
+      g_string_printf (string, "src [%04d]: %lu", num_src++,
+          gst_buffer_get_size (buf));
+      g_object_set (G_OBJECT (overlay), "text", string->str, NULL);
+      g_string_free (string, TRUE);
+    }
       break;
     case GST_PAD_SINK:
       g_print ("sink[%04d]: %lu\n", num_sink++, gst_buffer_get_size (buf));
