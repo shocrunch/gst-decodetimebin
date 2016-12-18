@@ -69,6 +69,7 @@ struct _GstDecodetimeBin
 {
   GstBin bin;
   GstElement *overlay;
+  GstElement *decoder;
 };
 
 struct _GstDecodetimeBinClass
