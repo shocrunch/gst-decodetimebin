@@ -99,6 +99,8 @@ static void gst_decodetime_bin_get_property (GObject * object, guint prop_id,
     GValue * value, GParamSpec * pspec);
 
 /* GObject vmethod implementations */
+static GstPadProbeReturn cb_have_buffer (GstPad * pad, GstPadProbeInfo * info,
+    gpointer user_data);
 
 /* initialize the decodetimebin's class */
 static void
@@ -146,10 +148,17 @@ gst_decodetime_bin_init (GstDecodetimeBin *decodetime_bin)
   gst_element_link (decodetime_bin->decoder, decodetime_bin->overlay);
 
   pad = gst_element_get_static_pad (decodetime_bin->decoder, "sink");
+  gst_pad_add_probe (pad, GST_PAD_PROBE_TYPE_BUFFER,
+      (GstPadProbeCallback) cb_have_buffer, NULL, NULL);
   pad_tmpl = gst_static_pad_template_get (&sink_factory);
   gpad = gst_ghost_pad_new_from_template ("sink", pad, pad_tmpl);
   gst_element_add_pad (GST_ELEMENT (decodetime_bin), gpad);
   gst_object_unref (pad_tmpl);
+  gst_object_unref (pad);
+
+  pad = gst_element_get_static_pad (decodetime_bin->decoder, "src");
+  gst_pad_add_probe (pad, GST_PAD_PROBE_TYPE_BUFFER,
+      (GstPadProbeCallback) cb_have_buffer, NULL, NULL);
   gst_object_unref (pad);
 
   pad = gst_element_get_static_pad (decodetime_bin->overlay, "src");
@@ -173,6 +182,30 @@ gst_decodetime_bin_get_property (GObject * object, guint prop_id,
 }
 
 /* GstElement vmethod implementations */
+
+static GstPadProbeReturn
+cb_have_buffer (GstPad * pad, GstPadProbeInfo * info, gpointer user_data)
+{
+  static guint num_src = 0;
+  static guint num_sink = 0;
+  GstPadDirection direction;
+  GstBuffer *buf;
+
+  buf = GST_PAD_PROBE_INFO_BUFFER (info);
+  direction = gst_pad_get_direction (pad);
+  switch (direction) {
+    case GST_PAD_SRC:
+      g_print ("src [%04d]: %lu\n", num_src++, gst_buffer_get_size (buf));
+      break;
+    case GST_PAD_SINK:
+      g_print ("sink[%04d]: %lu\n", num_sink++, gst_buffer_get_size (buf));
+      break;
+    default:
+      break;
+  }
+
+  return GST_PAD_PROBE_OK;
+}
 
 /* entry point to initialize the plug-in
  * initialize the plug-in itself
