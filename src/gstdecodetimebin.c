@@ -149,7 +149,7 @@ gst_decodetime_bin_init (GstDecodetimeBin *decodetime_bin)
 
   pad = gst_element_get_static_pad (decodetime_bin->decoder, "sink");
   gst_pad_add_probe (pad, GST_PAD_PROBE_TYPE_BUFFER,
-      (GstPadProbeCallback) cb_have_buffer, NULL, NULL);
+      (GstPadProbeCallback) cb_have_buffer, decodetime_bin, NULL);
   pad_tmpl = gst_static_pad_template_get (&sink_factory);
   gpad = gst_ghost_pad_new_from_template ("sink", pad, pad_tmpl);
   gst_element_add_pad (GST_ELEMENT (decodetime_bin), gpad);
@@ -167,6 +167,8 @@ gst_decodetime_bin_init (GstDecodetimeBin *decodetime_bin)
   gst_element_add_pad (GST_ELEMENT (decodetime_bin), gpad);
   gst_object_unref (pad_tmpl);
   gst_object_unref (pad);
+
+  decodetime_bin->clock = NULL;
 }
 
 static void
@@ -186,29 +188,39 @@ gst_decodetime_bin_get_property (GObject * object, guint prop_id,
 static GstPadProbeReturn
 cb_have_buffer (GstPad * pad, GstPadProbeInfo * info, gpointer user_data)
 {
-  static guint num_src = 0;
-  static guint num_sink = 0;
+  static GstClockTime base_time;
+  static GstClockTime abs_time;
   GstPadDirection direction;
-  GstBuffer *buf;
+  GstDecodetimeBin *bin = (GstDecodetimeBin *) user_data;
 
-  buf = GST_PAD_PROBE_INFO_BUFFER (info);
-  direction = gst_pad_get_direction (pad);
-  switch (direction) {
-    case GST_PAD_SRC:
-    {
-      GstElement *overlay = ((GstDecodetimeBin *) user_data)->overlay;
-      GString *string = g_string_new (NULL);
-      g_string_printf (string, "src [%04d]: %lu", num_src++,
-          gst_buffer_get_size (buf));
-      g_object_set (G_OBJECT (overlay), "text", string->str, NULL);
-      g_string_free (string, TRUE);
+  if (!bin->clock) {
+    GstElement *parent = GST_ELEMENT_PARENT (bin);
+    bin->clock = gst_element_get_clock (parent);
+  } else {
+    direction = gst_pad_get_direction (pad);
+    switch (direction) {
+      case GST_PAD_SINK:
+      {
+        base_time = gst_clock_get_time (bin->clock);
+      }
+        break;
+      case GST_PAD_SRC:
+      {
+
+        GstElement *overlay = ((GstDecodetimeBin *) user_data)->overlay;
+        GString *string = g_string_new (NULL);
+
+        abs_time = gst_clock_get_time (bin->clock);
+
+        g_string_printf (string, "decode time: %" GST_TIME_FORMAT,
+            GST_TIME_ARGS (abs_time - base_time));
+        g_object_set (G_OBJECT (overlay), "text", string->str, NULL);
+        g_string_free (string, TRUE);
+      }
+        break;
+      default:
+        break;
     }
-      break;
-    case GST_PAD_SINK:
-      g_print ("sink[%04d]: %lu\n", num_sink++, gst_buffer_get_size (buf));
-      break;
-    default:
-      break;
   }
 
   return GST_PAD_PROBE_OK;
