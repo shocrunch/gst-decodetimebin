@@ -3,7 +3,7 @@
  * Copyright (C) 2005 Thomas Vander Stichele <thomas@apestaart.org>
  * Copyright (C) 2005 Ronald S. Bultje <rbultje@ronald.bitfreak.net>
  * Copyright (C) 2016 Shota TAMURA <r3108.sh@gmail.com>
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
  * to deal in the Software without restriction, including without limitation
@@ -115,11 +115,10 @@ gst_decodetime_bin_class_init (GstDecodetimeBinClass * klass)
   gobject_class->set_property = gst_decodetime_bin_set_property;
   gobject_class->get_property = gst_decodetime_bin_get_property;
 
-  gst_element_class_set_details_simple(gstelement_class,
-    "DecodetimeBin",
-    "FIXME:Generic",
-    "FIXME:Generic Template Element",
-    "Shota TAMURA <r3108.sh@gmail.com>");
+  gst_element_class_set_details_simple (gstelement_class,
+      "DecodetimeBin",
+      "FIXME:Generic",
+      "FIXME:Generic Template Element", "Shota TAMURA <r3108.sh@gmail.com>");
 
   gst_element_class_add_pad_template (gstelement_class,
       gst_static_pad_template_get (&src_factory));
@@ -133,7 +132,7 @@ gst_decodetime_bin_class_init (GstDecodetimeBinClass * klass)
  * initialize instance structure
  */
 static void
-gst_decodetime_bin_init (GstDecodetimeBin *decodetime_bin)
+gst_decodetime_bin_init (GstDecodetimeBin * decodetime_bin)
 {
   GstPad *pad;
   GstPad *gpad;
@@ -257,14 +256,8 @@ decodetimebin_init (GstPlugin * decodetimebin)
  *
  * exchange the string 'Template decodetimebin' with your decodetimebin description
  */
-GST_PLUGIN_DEFINE (
-    GST_VERSION_MAJOR,
+GST_PLUGIN_DEFINE (GST_VERSION_MAJOR,
     GST_VERSION_MINOR,
     decodetimebin,
     "Template decodetimebin",
-    decodetimebin_init,
-    VERSION,
-    "LGPL",
-    "GStreamer",
-    "http://gstreamer.net/"
-)
+    decodetimebin_init, VERSION, "LGPL", "GStreamer", "http://gstreamer.net/")

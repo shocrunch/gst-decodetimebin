@@ -49,7 +49,6 @@
 #include <gst/gst.h>
 
 G_BEGIN_DECLS
-
 /* #defines don't like whitespacey bits */
 #define GST_TYPE_DECODETIMEBIN \
   (gst_decodetime_bin_get_type())
@@ -61,8 +60,7 @@ G_BEGIN_DECLS
   (G_TYPE_CHECK_INSTANCE_TYPE((obj),GST_TYPE_DECODETIMEBIN))
 #define GST_IS_DECODETIMEBIN_CLASS(klass) \
   (G_TYPE_CHECK_CLASS_TYPE((klass),GST_TYPE_DECODETIMEBIN))
-
-typedef struct _GstDecodetimeBin      GstDecodetimeBin;
+typedef struct _GstDecodetimeBin GstDecodetimeBin;
 typedef struct _GstDecodetimeBinClass GstDecodetimeBinClass;
 
 struct _GstDecodetimeBin
@@ -81,5 +79,4 @@ struct _GstDecodetimeBinClass
 GType gst_decodetime_bin_get_type (void);
 
 G_END_DECLS
-
 #endif /* __GST_DECODETIMEBIN_H__ */
