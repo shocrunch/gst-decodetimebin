@@ -74,6 +74,12 @@ enum
   LAST_SIGNAL
 };
 
+enum
+{
+  PROP_0,
+  PROP_DECODER
+};
+
 /* the capabilities of the inputs and outputs.
  *
  * describe the real formats here.
@@ -93,6 +99,8 @@ static GstStaticPadTemplate src_factory = GST_STATIC_PAD_TEMPLATE ("src",
 #define gst_decodetime_bin_parent_class parent_class
 G_DEFINE_TYPE (GstDecodetimeBin, gst_decodetime_bin, GST_TYPE_BIN);
 
+static GstStateChangeReturn gst_decodetime_bin_change_state (GstElement *
+    element, GstStateChange transition);
 static void gst_decodetime_bin_set_property (GObject * object, guint prop_id,
     const GValue * value, GParamSpec * pspec);
 static void gst_decodetime_bin_get_property (GObject * object, guint prop_id,
@@ -115,10 +123,18 @@ gst_decodetime_bin_class_init (GstDecodetimeBinClass * klass)
   gobject_class->set_property = gst_decodetime_bin_set_property;
   gobject_class->get_property = gst_decodetime_bin_get_property;
 
+  g_object_class_install_property (gobject_class, PROP_DECODER,
+      g_param_spec_object ("decoder", "Decoder",
+          "the video decode element to use (NULL = jpegdec)",
+          GST_TYPE_ELEMENT, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
+
   gst_element_class_set_details_simple (gstelement_class,
       "DecodetimeBin",
       "FIXME:Generic",
       "FIXME:Generic Template Element", "Shota TAMURA <r3108.sh@gmail.com>");
+
+
+  gstelement_class->change_state = gst_decodetime_bin_change_state;
 
   gst_element_class_add_pad_template (gstelement_class,
       gst_static_pad_template_get (&src_factory));
@@ -141,24 +157,8 @@ gst_decodetime_bin_init (GstDecodetimeBin * decodetime_bin)
   decodetime_bin->overlay = gst_element_factory_make ("textoverlay", "overlay");
   gst_bin_add (GST_BIN (decodetime_bin), decodetime_bin->overlay);
 
-  decodetime_bin->decoder = gst_element_factory_make ("jpegdec", "decoder");
-  gst_bin_add (GST_BIN (decodetime_bin), decodetime_bin->decoder);
-
-  gst_element_link (decodetime_bin->decoder, decodetime_bin->overlay);
-
-  pad = gst_element_get_static_pad (decodetime_bin->decoder, "sink");
-  gst_pad_add_probe (pad, GST_PAD_PROBE_TYPE_BUFFER,
-      (GstPadProbeCallback) cb_have_buffer, decodetime_bin, NULL);
-  pad_tmpl = gst_static_pad_template_get (&sink_factory);
-  gpad = gst_ghost_pad_new_from_template ("sink", pad, pad_tmpl);
-  gst_element_add_pad (GST_ELEMENT (decodetime_bin), gpad);
-  gst_object_unref (pad_tmpl);
-  gst_object_unref (pad);
-
-  pad = gst_element_get_static_pad (decodetime_bin->decoder, "src");
-  gst_pad_add_probe (pad, GST_PAD_PROBE_TYPE_BUFFER,
-      (GstPadProbeCallback) cb_have_buffer, decodetime_bin, NULL);
-  gst_object_unref (pad);
+  decodetime_bin->sink_pad = gst_ghost_pad_new_no_target ("sink", GST_PAD_SINK);
+  gst_element_add_pad (GST_ELEMENT (decodetime_bin), decodetime_bin->sink_pad);
 
   pad = gst_element_get_static_pad (decodetime_bin->overlay, "src");
   pad_tmpl = gst_static_pad_template_get (&src_factory);
@@ -167,19 +167,85 @@ gst_decodetime_bin_init (GstDecodetimeBin * decodetime_bin)
   gst_object_unref (pad_tmpl);
   gst_object_unref (pad);
 
+  decodetime_bin->decoder = NULL;
   decodetime_bin->clock = NULL;
+}
+
+static GstStateChangeReturn
+gst_decodetime_bin_change_state (GstElement * element,
+    GstStateChange transition)
+{
+  GstStateChangeReturn ret = GST_STATE_CHANGE_SUCCESS;
+  GstDecodetimeBin *decodetime_bin = GST_DECODETIMEBIN (element);
+
+  switch (transition) {
+    case GST_STATE_CHANGE_NULL_TO_READY:
+    {
+      GstPad *pad;
+      if (decodetime_bin->decoder == NULL) {
+        decodetime_bin->decoder =
+            gst_element_factory_make ("jpegdec", "decoder");
+      }
+      gst_bin_add (GST_BIN (decodetime_bin), decodetime_bin->decoder);
+      gst_element_link (decodetime_bin->decoder, decodetime_bin->overlay);
+
+      pad = gst_element_get_static_pad (decodetime_bin->decoder, "sink");
+      gst_ghost_pad_set_target (GST_GHOST_PAD (decodetime_bin->sink_pad), pad);
+      gst_pad_add_probe (pad, GST_PAD_PROBE_TYPE_BUFFER,
+          (GstPadProbeCallback) cb_have_buffer, decodetime_bin, NULL);
+      gst_object_unref (pad);
+
+      pad = gst_element_get_static_pad (decodetime_bin->decoder, "src");
+      gst_pad_add_probe (pad, GST_PAD_PROBE_TYPE_BUFFER,
+          (GstPadProbeCallback) cb_have_buffer, decodetime_bin, NULL);
+      gst_object_unref (pad);
+    }
+      break;
+    default:
+      break;
+  }
+
+  ret = GST_CALL_PARENT_WITH_DEFAULT (GST_ELEMENT_CLASS, change_state,
+      (element, transition), GST_STATE_CHANGE_SUCCESS);
+
+  return ret;
 }
 
 static void
 gst_decodetime_bin_set_property (GObject * object, guint prop_id,
     const GValue * value, GParamSpec * pspec)
 {
+  GstDecodetimeBin *decodetime_bin = GST_DECODETIMEBIN (object);
+
+  switch (prop_id) {
+    case PROP_DECODER:
+      GST_OBJECT_LOCK (decodetime_bin);
+      if (decodetime_bin->decoder)
+        gst_object_unref (decodetime_bin->decoder);
+      decodetime_bin->decoder = g_value_get_object (value);
+      gst_object_ref (decodetime_bin->decoder);
+      GST_OBJECT_UNLOCK (decodetime_bin);
+      break;
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+      break;
+  }
 }
 
 static void
 gst_decodetime_bin_get_property (GObject * object, guint prop_id,
     GValue * value, GParamSpec * pspec)
 {
+  GstDecodetimeBin *decodetime_bin = GST_DECODETIMEBIN (object);
+
+  switch (prop_id) {
+    case PROP_DECODER:
+      g_value_take_object (value, decodetime_bin->decoder);
+      break;
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+      break;
+  }
 }
 
 /* GstElement vmethod implementations */

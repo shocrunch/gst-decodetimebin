@@ -69,6 +69,7 @@ struct _GstDecodetimeBin
   GstElement *overlay;
   GstElement *decoder;
   GstClock *clock;
+  GstPad *sink_pad;
 };
 
 struct _GstDecodetimeBinClass
