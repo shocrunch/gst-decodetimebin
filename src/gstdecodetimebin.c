@@ -167,6 +167,7 @@ gst_decodetime_bin_init (GstDecodetimeBin * decodetime_bin)
   gst_object_unref (pad_tmpl);
   gst_object_unref (pad);
 
+  decodetime_bin->timestamp_queue = g_async_queue_new ();
   decodetime_bin->decoder = NULL;
   decodetime_bin->clock = NULL;
 }
@@ -253,8 +254,6 @@ gst_decodetime_bin_get_property (GObject * object, guint prop_id,
 static GstPadProbeReturn
 cb_have_buffer (GstPad * pad, GstPadProbeInfo * info, gpointer user_data)
 {
-  static GstClockTime base_time;
-  static GstClockTime abs_time;
   GstPadDirection direction;
   GstDecodetimeBin *bin = (GstDecodetimeBin *) user_data;
 
@@ -268,20 +267,29 @@ cb_have_buffer (GstPad * pad, GstPadProbeInfo * info, gpointer user_data)
     switch (direction) {
       case GST_PAD_SINK:
       {
-        base_time = gst_clock_get_time (bin->clock);
+        GstClockTime *base_time;
+        base_time = g_slice_new (GstClockTime);
+        *base_time = gst_clock_get_time (bin->clock);
+        g_async_queue_push (bin->timestamp_queue, base_time);
       }
         break;
       case GST_PAD_SRC:
       {
-
+        GstClockTime base_time, *t;
+        GstClockTime abs_time;
         GstElement *overlay = ((GstDecodetimeBin *) user_data)->overlay;
         GString *string = g_string_new (NULL);
 
-        abs_time = gst_clock_get_time (bin->clock);
+        t = g_async_queue_try_pop (bin->timestamp_queue);
+        if (t) {
+          base_time = (GstClockTime) * t;
+          abs_time = gst_clock_get_time (bin->clock);
+          g_string_printf (string, "decode time: %" GST_TIME_FORMAT,
+              GST_TIME_ARGS (abs_time - base_time));
+          g_object_set (G_OBJECT (overlay), "text", string->str, NULL);
+          g_slice_free (GstClockTime, t);
+        }
 
-        g_string_printf (string, "decode time: %" GST_TIME_FORMAT,
-            GST_TIME_ARGS (abs_time - base_time));
-        g_object_set (G_OBJECT (overlay), "text", string->str, NULL);
         g_string_free (string, TRUE);
       }
         break;

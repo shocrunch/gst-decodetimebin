@@ -70,6 +70,7 @@ struct _GstDecodetimeBin
   GstElement *decoder;
   GstClock *clock;
   GstPad *sink_pad;
+  GAsyncQueue *timestamp_queue;
 };
 
 struct _GstDecodetimeBinClass
