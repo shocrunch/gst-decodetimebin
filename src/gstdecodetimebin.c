@@ -261,7 +261,9 @@ cb_have_buffer (GstPad * pad, GstPadProbeInfo * info, gpointer user_data)
   if (!bin->clock) {
     GstElement *parent = GST_ELEMENT_PARENT (bin);
     bin->clock = gst_element_get_clock (parent);
-  } else {
+  }
+
+  if (bin->clock) {
     direction = gst_pad_get_direction (pad);
     switch (direction) {
       case GST_PAD_SINK:
