@@ -128,7 +128,7 @@ gst_decodetime_bin_class_init (GstDecodetimeBinClass * klass)
           "the video decode element to use (NULL = jpegdec)",
           GST_TYPE_ELEMENT, G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS));
 
-  gst_element_class_set_details_simple (gstelement_class,
+  gst_element_class_set_metadata (gstelement_class,
       "DecodetimeBin",
       "FIXME:Generic",
       "FIXME:Generic Template Element", "Shota TAMURA <r3108.sh@gmail.com>");
