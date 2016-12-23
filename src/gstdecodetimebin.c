@@ -105,6 +105,7 @@ static void gst_decodetime_bin_set_property (GObject * object, guint prop_id,
     const GValue * value, GParamSpec * pspec);
 static void gst_decodetime_bin_get_property (GObject * object, guint prop_id,
     GValue * value, GParamSpec * pspec);
+static void gst_decodetime_bin_dispose (GObject * object);
 
 /* GObject vmethod implementations */
 static GstPadProbeReturn cb_have_buffer (GstPad * pad, GstPadProbeInfo * info,
@@ -122,6 +123,7 @@ gst_decodetime_bin_class_init (GstDecodetimeBinClass * klass)
 
   gobject_class->set_property = gst_decodetime_bin_set_property;
   gobject_class->get_property = gst_decodetime_bin_get_property;
+  gobject_class->dispose = gst_decodetime_bin_dispose;
 
   g_object_class_install_property (gobject_class, PROP_DECODER,
       g_param_spec_object ("decoder", "Decoder",
@@ -202,6 +204,10 @@ gst_decodetime_bin_change_state (GstElement * element,
       gst_object_unref (pad);
     }
       break;
+    case GST_STATE_CHANGE_READY_TO_NULL:
+    {
+      gst_element_unlink (decodetime_bin->decoder, decodetime_bin->overlay);
+    }
     default:
       break;
   }
@@ -317,6 +323,22 @@ decodetimebin_init (GstPlugin * decodetimebin)
 
   return gst_element_register (decodetimebin, "decodetimebin", GST_RANK_NONE,
       GST_TYPE_DECODETIMEBIN);
+}
+
+static void
+gst_decodetime_bin_dispose (GObject * object)
+{
+  GstDecodetimeBin *bin = (GstDecodetimeBin *) object;
+
+  if (bin->clock) {
+    gst_object_unref (bin->clock);
+  }
+
+  if (bin->timestamp_queue) {
+    g_async_queue_unref (bin->timestamp_queue);
+  }
+
+  G_OBJECT_CLASS (parent_class)->dispose (object);
 }
 
 /* PACKAGE: this is usually set by autotools depending on some _INIT macro
